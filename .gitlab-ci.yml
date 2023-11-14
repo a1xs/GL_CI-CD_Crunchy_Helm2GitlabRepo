@@ -1,0 +1,56 @@
+---
+
+workflow:
+  rules:
+    - if: '$CI_MERGE_REQUEST_IID'
+    - if: '$CI_COMMIT_TAG'
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
+      when: never
+    - if: '$CI_COMMIT_BRANCH'
+
+variables:
+  REPO: "https://github.com/CrunchyData/postgres-operator-examples.git"
+  DIR: "postgres-operator-examples"
+  APP1: "pgo"
+  APP2: "postgrescluster"
+
+## PIPELINE DEFINITION
+stages:
+  - package
+  - upload
+
+#### PACKAGE SECTION
+package-main:
+  stage: package
+  image:
+    name: $HELM_IMAGE
+    entrypoint: [ "" ]
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'main'
+    - when: never
+  artifacts:
+    paths:
+      - ${DIR}/${APP1}-*.tgz
+      - ${DIR}/${APP2}-*.tgz
+    reports:
+      dotenv: $DIR/build.env
+  script:
+    - git clone $REPO  && cd $DIR
+    - VERSION=$(grep -E "^version:" "helm/install/Chart.yaml" | awk '{print $2}') && echo $VERSION && echo "VERSION=$VERSION" >> build.env
+    - helm package ./helm/install/ -u ./helm/postgres/ --version v${VERSION}
+
+#### UPLOAD SECTION
+upload-to-package-registry:
+  stage: upload
+  image: $ALPINE_IMAGE
+  dependencies:
+    - package-main
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'main'
+    - when: never
+  script:
+    - echo $VERSION
+    - apk update && apk add curl
+    - cd ${DIR} && ls -la && cd ..
+    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ${DIR}/${APP1}-v${VERSION}.tgz ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${APP1}/${VERSION}/${APP1}-v${VERSION}.tgz'
+    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ${DIR}/${APP2}-v${VERSION}.tgz ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${APP2}/${VERSION}/${APP2}-v${VERSION}.tgz'
