@@ -37,6 +37,7 @@ package-main:
   script:
     - git clone $REPO  && cd $DIR
     - VERSION=$(grep -E "^version:" "helm/install/Chart.yaml" | awk '{print $2}') && echo $VERSION && echo "VERSION=$VERSION" >> build.env
+#    - helm package ./helm/install/ --version v${VERSION}
     - helm package ./helm/install/ -u ./helm/postgres/ --version v${VERSION}
 
 #### UPLOAD SECTION
@@ -51,6 +52,8 @@ upload-to-package-registry:
   script:
     - echo $VERSION
     - apk update && apk add curl
-    - cd ${DIR} && ls -la && cd ..
-    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ${DIR}/${APP1}-v${VERSION}.tgz ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${APP1}/${VERSION}/${APP1}-v${VERSION}.tgz'
-    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ${DIR}/${APP2}-v${VERSION}.tgz ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${APP2}/${VERSION}/${APP2}-v${VERSION}.tgz'
+    - cd ${DIR} && ls -la
+#    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ${DIR}/${APP1}-v${VERSION}.tgz ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${APP1}/${VERSION}/${APP1}-v${VERSION}.tgz'
+    - 'curl --request POST --user gitlab-ci-token:$CI_JOB_TOKEN --form "chart=@${APP1}-v${VERSION}.tgz" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/helm/api/stable/charts"'
+#    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ${DIR}/${APP2}-v${VERSION}.tgz ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${APP2}/${VERSION}/${APP2}-v${VERSION}.tgz'
+    - 'curl --request POST --user gitlab-ci-token:$CI_JOB_TOKEN --form "chart=@${APP2}-v${VERSION}.tgz" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/helm/api/stable/charts"'
